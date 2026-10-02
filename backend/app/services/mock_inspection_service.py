@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 
 from app.models import CheckResult, DetectionItem, InspectionResult, ProductConfiguration
@@ -8,9 +9,33 @@ from app.models import CheckResult, DetectionItem, InspectionResult, ProductConf
 class MockInspectionService:
     """Mock AI service used during Phase 1 to simulate inspection results."""
 
-    def run(self, product: ProductConfiguration) -> InspectionResult:
-        requirement_names = {requirement.name.lower() for requirement in product.requirements}
+    @staticmethod
+    def _normalize_tokens(value: str) -> set[str]:
+        return {token for token in re.sub(r"[^a-z0-9]+", " ", value.lower()).split() if token}
 
+    @staticmethod
+    def _requirement_satisfied(requirement_name: str, detections: list[DetectionItem]) -> bool:
+        tokens = MockInspectionService._normalize_tokens(requirement_name)
+        detection_labels = {label.lower() for label in (detection.label for detection in detections)}
+
+        if "product" in tokens and "detected" in tokens:
+            return "product-body" in detection_labels or "product" in detection_labels
+        if "label" in tokens:
+            return "label" in detection_labels
+        if "cap" in tokens:
+            return "cap" in detection_labels
+        if "logo" in tokens:
+            return "logo" in detection_labels
+        if "damage" in tokens or "defect" in tokens:
+            return "damage" not in detection_labels and "defect" not in detection_labels
+        if "sticker" in tokens:
+            return "sticker" in detection_labels
+        if "decal" in tokens:
+            return "decal" in detection_labels
+
+        return False
+
+    def run(self, product: ProductConfiguration) -> InspectionResult:
         detections = [
             DetectionItem(
                 id="det-1",
@@ -39,26 +64,12 @@ class MockInspectionService:
         ]
 
         checks: list[CheckResult] = []
+        required_failed = False
+
         for requirement in product.requirements:
-            name = requirement.name.lower()
-            matched = name in requirement_names
-            passed = bool(
-                requirement.required
-                and (
-                    ("label" in name and "label" in requirement_names)
-                    or ("cap" in name and "cap" in requirement_names)
-                    or ("logo" in name and "logo" in requirement_names)
-                    or ("damage" in name and "damage" not in requirement_names)
-                    or ("correct" in name and "correct" in requirement_names)
-                    or ("product" in name)
-                )
-            )
-            if not requirement.required:
-                passed = True
-            if name == "product detected":
-                passed = True
-            if name == "packaging damage":
-                passed = True
+            passed = self._requirement_satisfied(requirement.name, detections)
+            if requirement.required and not passed:
+                required_failed = True
 
             checks.append(
                 CheckResult(
@@ -66,23 +77,19 @@ class MockInspectionService:
                     name=requirement.name,
                     passed=passed,
                     explanation=(
-                        "Requirement satisfied by detected product features and packaging markers."
+                        "Requirement satisfied by simulated product features and packaging markers."
                         if passed
-                        else "The required element was not clearly visible in the uploaded image."
+                        else "The required element was not clearly visible in the simulated inspection output."
                     ),
                     confidence=0.9 if passed else 0.68,
                 )
             )
 
-        required_checks = [check for check in checks if check.name.lower() != "product detected" or True]
-        failed_checks = [check for check in checks if not check.passed]
-        passed_checks = [check for check in checks if check.passed]
-        overall_passed = len(failed_checks) == 0
-
+        overall_passed = not required_failed
         summary = (
-            "Inspection passed: all configured requirements were validated against the product image."
+            "Simulated inspection passed: all required checks were satisfied in the mock validation run."
             if overall_passed
-            else "Inspection failed: one or more required product checks were not confirmed by inspection."
+            else "Simulated inspection failed: one or more required checks were not satisfied in the mock validation run."
         )
 
         return InspectionResult(

@@ -50,10 +50,10 @@ export default function ResultsPage() {
         <div>
           <p className="eyebrow">Inspection result</p>
           <h1>{result.product_name}</h1>
-          <p className="muted-text">Overall confidence: {Math.round(result.overall_confidence * 100)}%</p>
+          <p className="muted-text">Simulated inspection output · Overall confidence: {Math.round(result.overall_confidence * 100)}%</p>
         </div>
         <div className={`result-badge ${result.passed ? "pass" : "fail"}`}>
-          {result.passed ? "PASS" : "FAIL"}
+          {result.passed ? "SIMULATED PASS" : "SIMULATED FAIL"}
         </div>
       </section>
 
