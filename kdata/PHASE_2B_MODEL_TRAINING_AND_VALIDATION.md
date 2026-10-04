@@ -4,9 +4,12 @@ This runbook takes the project from the supplied YOLO dataset to an experimental
 evaluated model and a verified backend inference path. It is written for a
 developer or an AI coding session working in this repository.
 
-> **Current state:** the optional YOLO backend and training script exist, but no
-> model has been trained or evaluated yet. Completing the instructions below is
-> the work that remains for Phase 2B. The default backend still uses mock mode.
+> **Current state (2026-10-04):** a grouped one-class YOLOv8n label-region
+> model completed 10 CPU epochs at 320px. Independent grouped validation and a
+> one-time grouped test scored mAP50 0.995 and mAP50-95 0.941/0.944. This is a
+> promising localization prototype on this dataset, not production readiness:
+> the source is one camera/session and has no label-absent examples. The backend
+> remains in mock mode pending external-data validation.
 
 ## 1. What this model can and cannot do
 
@@ -31,6 +34,102 @@ product inspection system.
 The numbers above are a dataset inventory, not evidence of model quality. A
 human should confirm what the numeric classes mean for the intended product
 before treating class predictions as useful product identification.
+
+### Capture-sequence leakage
+
+The image filenames contain capture timestamps. Grouping consecutive frames
+with gaps of at most two seconds found 45 capture bursts; 44 bursts cross the
+provided split boundaries, containing 728 of the 735 images. In other words,
+near-consecutive frames from the same capture sequence appear in train,
+validation, and often test. Scores measured on these original partitions are
+not independent generalization estimates. This also invalidates the earlier
+held-out-test readiness interpretation.
+
+The training script's `--group-captures` option now rebuilds temporary splits
+by capture burst (70% train, 15% validation, 15% test) before training. It
+requires timestamped filenames in the supplied naming format. This is a better
+experiment split, but all images still come from one dated source/camera; a
+final claim requires a new holdout collected in independent sessions and
+conditions. Also, every supplied image contains a labeled object. Collect
+label-absent, obscured, and out-of-scope examples to measure false detections
+before using the model to reject or pass real products.
+
+### Local class-support audit
+
+The extracted local dataset was counted by annotated image and class. Each of
+the 735 label files contains exactly one object, so image support and object
+support are equal for this dataset.
+
+| Split | Images / objects | Classes with 0 support | 1-4 | 5-9 | 10+ | Highest support |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Train | 512 | 1 | 11 | 6 | 33 | 22 |
+| Validation | 149 | 5 | 31 | 15 | 0 | 8 |
+| Test | 74 | 11 | 40 | 0 | 0 | 4 |
+
+In training, class `30` has no examples. The other classes below five training
+images are `34`, `35`, `36`, `37`, `38`, `41`, `42`, `43`, `44`, `46`, and
+`47`. Validation has no class with more than eight examples, and every class
+represented in test has at most four. Per-class validation and test metrics
+will therefore be very noisy; absence from a split must not be interpreted as
+good performance. The numeric names also need domain-owner confirmation.
+
+### Recommended retraining decision
+
+First confirm the intended task:
+
+- If the goal is only to locate vial labels, make a one-class dataset by
+  mapping each existing label class to `label` while preserving its box. This
+  uses the available annotations for the task they support and avoids asking
+  a 51-class model to learn identities from very sparse examples. The training
+  script supports this as an explicit opt-in mode:
+
+  ```bash
+  python scripts/train_label_detector.py --single-class --group-captures --epochs 10 --imgsz 320 --device cpu
+  ```
+
+  This saves to `backend/models/label-detector/yolov8-label-regions-grouped/`,
+  separate from the earlier runs. The four-epoch ungrouped checkpoint scored
+  precision 0.956, recall 0.966, mAP50 0.988, and mAP50-95 0.811 on the original
+  validation split, but those values are contaminated by capture overlap. The
+  grouped 10-epoch run scored precision 0.999, recall 1.000, mAP50 0.995, and
+  mAP50-95 0.940 during training. Independent evaluation reproduced precision
+  0.999, recall 1.000, mAP50 0.995, and mAP50-95 0.941 on 110 grouped validation
+  images. A one-time evaluation on 113 grouped test images scored precision
+  1.000, recall 1.000, mAP50 0.995, and mAP50-95 0.944. Review these plots, but
+  do not treat this same-source dataset as an external readiness test.
+
+  Validate a saved grouped checkpoint on validation data with:
+
+  ```bash
+  python scripts/validate_label_detector.py --weights models/label-detector/yolov8-label-regions-grouped/weights/best.pt --split valid --imgsz 320 --single-class --group-captures --device cpu
+  ```
+
+  The grouped checkpoint's one-time test evaluation is retained under
+  `runs/label-detector-evaluation/yolov8-label-regions-grouped-test/`. Do not
+  use it to tune another model; obtain new independent-session data for a final
+  generalization check.
+- If the goal is to identify a product/SKU, confirm the class-to-product map
+  first, then collect more independent images per class. A reasonable planning
+  floor for the next experiment is 20-30 varied training images and at least 5
+  validation images per class; this is a data-collection target, not a model
+  acceptance threshold. Include different capture conditions and product
+  instances, and split by source/capture group to avoid near-duplicate leakage.
+
+After label localization is validated, treat product/SKU reading as a separate
+stage: crop the detected label region, run OCR, and normalize the recognized
+text against a human-confirmed product/SKU catalog. Measure exact SKU match and
+abstention/error rates on a separate labeled set; a correct label box does not
+prove that the product text was read correctly. A visual classifier is an
+alternative only if the use case has a confirmed finite SKU set and enough
+representative labeled examples per SKU.
+
+Do not try to solve the rare-class problem by duplicating images across splits
+or by aggressive oversampling before the class map and labels are audited.
+Choose the experiment using grouped training and validation only, save each run
+under a distinct output directory, and keep the configuration fixed before
+final testing. The provided test split is contaminated by the same capture
+overlap and has already been inspected, so it is not a blind final set. Collect
+a fresh, representative holdout for a future final claim.
 
 ## 2. Responsibilities and completion gates
 
@@ -217,6 +316,12 @@ per-class estimates may be noisy. Establish acceptance criteria before
 reviewing the test results. If metrics are weak or classes have inadequate
 support, report that clearly and collect/label more representative data rather
 than presenting the detector as reliable.
+
+The earlier 51-class report captured precision 0.0406, recall 0.1958, mAP50
+0.0545, and mAP50-95 0.0541 on the supplied test partition. Its PR curve rounds
+mAP50 to 0.055. Because the supplied partitions share capture bursts, these
+numbers are retained only as historical run output, not as an independent test
+of generalization.
 
 The numeric class names are opaque. Have a human or the dataset owner confirm
 the class-to-product mapping before claiming that a detected class identifies a
