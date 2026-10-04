@@ -41,19 +41,19 @@ export default function Home() {
 
       <section className="panel summary-grid">
         <div>
-          <p className="eyebrow">Recent inspections</p>
+          <p className="eyebrow">Demo inspection history</p>
           <ul className="recent-list">
             <li>
               <strong>Beverage Bottle</strong>
-              <span>Passed · 94% confidence</span>
+              <span>Sample result · 94% confidence</span>
             </li>
             <li>
               <strong>Supplement Jar</strong>
-              <span>Failed · Label missing</span>
+              <span>Sample result · Label missing</span>
             </li>
             <li>
               <strong>Electronics Box</strong>
-              <span>Passed · 90% confidence</span>
+              <span>Sample result · 90% confidence</span>
             </li>
           </ul>
         </div>
@@ -61,15 +61,15 @@ export default function Home() {
         <div className="stat-card-wrap">
           <div className="stat-card">
             <span>Configurable checks</span>
-            <strong>5</strong>
+            <strong>Demo</strong>
           </div>
           <div className="stat-card">
             <span>Inspection modes</span>
-            <strong>3</strong>
+            <strong>Demo</strong>
           </div>
           <div className="stat-card">
             <span>Pass rate</span>
-            <strong>92%</strong>
+            <strong>Demo</strong>
           </div>
         </div>
       </section>
