@@ -50,10 +50,13 @@ export default function ResultsPage() {
         <div>
           <p className="eyebrow">Inspection result</p>
           <h1>{result.product_name}</h1>
-          <p className="muted-text">Simulated inspection output · Overall confidence: {Math.round(result.overall_confidence * 100)}%</p>
+          <p className="muted-text">
+            {result.inspection_mode === "yolo" ? "YOLO label detector" : "Mock simulation"} · Overall confidence:{" "}
+            {Math.round(result.overall_confidence * 100)}%
+          </p>
         </div>
         <div className={`result-badge ${result.passed ? "pass" : "fail"}`}>
-          {result.passed ? "SIMULATED PASS" : "SIMULATED FAIL"}
+          {result.passed ? "PASS" : "FAIL"}
         </div>
       </section>
 
@@ -118,6 +121,11 @@ export default function ResultsPage() {
                   <span className="pill neutral">{detection.category}</span>
                 </div>
                 <p>Confidence: {Math.round(detection.confidence * 100)}%</p>
+                {detection.bounding_box ? (
+                  <small>
+                    Box: {detection.bounding_box.map((coordinate) => coordinate.toFixed(3)).join(", ")}
+                  </small>
+                ) : null}
               </div>
             ))}
           </div>

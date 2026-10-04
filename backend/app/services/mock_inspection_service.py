@@ -95,6 +95,7 @@ class MockInspectionService:
         return InspectionResult(
             product_name=product.name,
             category=product.category,
+            inspection_mode="mock",
             passed=overall_passed,
             overall_confidence=sum(check.confidence for check in checks) / max(len(checks), 1),
             summary=summary,

@@ -25,6 +25,7 @@ class DetectionItem(BaseModel):
     label: str
     confidence: float
     category: Literal["object", "region", "packaging", "defect", "label"]
+    bounding_box: tuple[float, float, float, float] | None = None
 
 
 class CheckResult(BaseModel):
@@ -38,6 +39,7 @@ class CheckResult(BaseModel):
 class InspectionResult(BaseModel):
     product_name: str
     category: str
+    inspection_mode: Literal["mock", "yolo"]
     passed: bool
     overall_confidence: float
     summary: str

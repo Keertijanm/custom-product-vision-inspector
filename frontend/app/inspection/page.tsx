@@ -65,9 +65,8 @@ export default function InspectionPage() {
           <p className="eyebrow">Inspection</p>
           <h1>{product.name}</h1>
           <p className="muted-text">
-            Review the uploaded product image and launch a simulated inspection workflow against the configured rules.
+            Review the uploaded product image and launch the configured inspection workflow against the selected rules.
           </p>
-          <p className="muted-text">This is a mock validation flow for demo purposes and is not a live AI prediction system.</p>
         </div>
       </section>
 

@@ -29,6 +29,7 @@ def test_default_configuration_passes() -> None:
     assert checks["Cap present"].passed is True
     assert checks["Logo visible"].passed is True
     assert checks["Packaging damage"].passed is True
+    assert result.inspection_mode == "mock"
 
 
 def test_failing_required_requirement_is_reported() -> None:

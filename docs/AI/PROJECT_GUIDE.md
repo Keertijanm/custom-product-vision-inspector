@@ -755,7 +755,8 @@ Mock AI functionality may be used where necessary.
 
 ## Phase 2 — Real Computer Vision
 
-Integrate real models and image processing.
+Integrate real models and image processing. The current implementation supports an optional YOLO label detector
+that can be trained on the supplied vial-label dataset; mock mode remains the default until weights are configured.
 
 Potential components:
 
@@ -766,6 +767,13 @@ Potential components:
 * Object detection
 * Segmentation
 * Requirement validation
+
+The supplied dataset contains 735 images, one labeled region per image, and 51 numeric classes. It supports label
+presence/class experiments only, has limited and imbalanced examples per class, and cannot validate caps, product
+bodies, logos, or damage. The YOLO inspection response must identify its engine and must not treat unsupported
+requirements as passed.
+
+To install the optional runtime and train a local model, see the Phase 2 instructions in the root README.
 
 ## Phase 3 — Advanced Customization
 
@@ -799,23 +807,21 @@ Do not implement future-phase functionality prematurely if it compromises the wo
 
 The immediate priority is:
 
-> **Build a reliable Phase 1 end-to-end MVP before expanding the AI capabilities.**
+> **Advance Phase 2 computer vision while preserving the verified Phase 1 end-to-end flow.**
 
-The first working version should prove that:
+The current implementation should prove that:
 
 ```text
-A user can configure an inspection
+A user can configure an inspection and upload an image
         ↓
-submit an image
+run either the mock engine or a configured real detector
         ↓
-run an inspection
+receive structured results that identify their source
         ↓
-receive structured results
-        ↓
-understand why the product passed or failed
+understand supported checks, unsupported checks, and why they passed or failed
 ```
 
-Once this workflow is stable, improve the intelligence of the inspection engine.
+Model quality must be evaluated on held-out data before predictions are represented as reliable.
 
 ---
 

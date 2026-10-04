@@ -18,6 +18,7 @@ export type Detection = {
   label: string;
   confidence: number;
   category: "object" | "region" | "packaging" | "defect" | "label";
+  bounding_box?: [number, number, number, number] | null;
 };
 
 export type CheckResult = {
@@ -31,6 +32,7 @@ export type CheckResult = {
 export type InspectionResult = {
   product_name: string;
   category: string;
+  inspection_mode: "mock" | "yolo";
   passed: boolean;
   overall_confidence: number;
   summary: string;
