@@ -39,7 +39,13 @@ def create_inspection_service() -> MockInspectionService | YoloInspectionService
             raise RuntimeError("YOLO_CONFIDENCE_THRESHOLD must be a number between 0 and 1.") from error
         if not 0 <= confidence_threshold <= 1:
             raise RuntimeError("YOLO_CONFIDENCE_THRESHOLD must be a number between 0 and 1.")
-        return YoloInspectionService(model_path, confidence_threshold)
+        ocr_languages = [
+            language.strip()
+            for language in os.getenv("YOLO_OCR_LANGUAGES", "").split(",")
+            if language.strip()
+        ]
+        catalog_path = os.getenv("PRODUCT_CATALOG_PATH")
+        return YoloInspectionService(model_path, confidence_threshold, ocr_languages or None, catalog_path)
     raise RuntimeError("INSPECTION_ENGINE must be either 'mock' or 'yolo'.")
 
 

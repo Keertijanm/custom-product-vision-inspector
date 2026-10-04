@@ -9,7 +9,8 @@ from pathlib import Path
 from statistics import mean
 from typing import TYPE_CHECKING
 
-from app.models import CheckResult, DetectionItem, InspectionResult, ProductConfiguration
+from app.models import CheckResult, DetectionItem, InspectionResult, ProductConfiguration, RecognizedText
+from app.services.label_data_enricher import LabelDataEnricher
 
 if TYPE_CHECKING:
     from PIL import Image
@@ -21,7 +22,13 @@ _MAX_IMAGE_BYTES = 15 * 1024 * 1024
 class YoloInspectionService:
     """Runs a configured YOLO model and validates only label-related requirements."""
 
-    def __init__(self, model_path: str, confidence_threshold: float = 0.25) -> None:
+    def __init__(
+        self,
+        model_path: str,
+        confidence_threshold: float = 0.25,
+        ocr_languages: list[str] | None = None,
+        catalog_path: str | None = None,
+    ) -> None:
         if not 0 <= confidence_threshold <= 1:
             raise ValueError("Confidence threshold must be between 0 and 1.")
         weights = Path(model_path)
@@ -38,6 +45,44 @@ class YoloInspectionService:
 
         self.model = YOLO(str(weights))
         self.confidence_threshold = confidence_threshold
+        self.ocr_reader = None
+        self.data_enricher = (
+            LabelDataEnricher.from_json_file(catalog_path)
+            if catalog_path
+            else LabelDataEnricher()
+        )
+        if ocr_languages:
+            try:
+                import easyocr
+            except ImportError as error:
+                raise RuntimeError(
+                    "Label OCR requires EasyOCR. Install it with `pip install -r requirements-vision.txt`."
+                ) from error
+            self.ocr_reader = easyocr.Reader(ocr_languages, gpu=False)
+
+    def _read_label_text(self, image: Image.Image, coordinates: list[float]) -> list[RecognizedText]:
+        reader = getattr(self, "ocr_reader", None)
+        if reader is None:
+            return []
+
+        import numpy as np
+
+        width, height = image.size
+        x1, y1, x2, y2 = coordinates
+        left = max(0, min(width, int(x1)))
+        top = max(0, min(height, int(y1)))
+        right = max(left, min(width, int(x2)))
+        bottom = max(top, min(height, int(y2)))
+        if left == right or top == bottom:
+            return []
+
+        crop = image.crop((left, top, right, bottom))
+        results = reader.readtext(np.asarray(crop), detail=1, paragraph=False, mag_ratio=2.0)
+        return [
+            RecognizedText(text=text.strip(), confidence=float(confidence))
+            for _, text, confidence in results
+            if text.strip()
+        ]
 
     @staticmethod
     def _decode_image(image_url: str | None) -> Image.Image:
@@ -82,6 +127,7 @@ class YoloInspectionService:
             class_index = int(class_id)
             label = names[class_index] if isinstance(names, (list, tuple)) else names[class_index]
             x1, y1, x2, y2 = coordinates
+            recognized_text = self._read_label_text(image, coordinates)
             detections.append(
                 DetectionItem(
                     id=f"det-{index + 1}",
@@ -93,6 +139,12 @@ class YoloInspectionService:
                         max(0.0, min(1.0, y1 / height)),
                         max(0.0, min(1.0, x2 / width)),
                         max(0.0, min(1.0, y2 / height)),
+                    ),
+                    recognized_text=recognized_text,
+                    data_completion=(
+                        self.data_enricher.enrich(recognized_text)
+                        if self.ocr_reader is not None
+                        else None
                     ),
                 )
             )

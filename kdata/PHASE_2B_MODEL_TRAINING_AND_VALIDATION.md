@@ -351,6 +351,8 @@ source .venv/bin/activate
 export INSPECTION_ENGINE=yolo
 export YOLO_MODEL_PATH="/absolute/path/to/backend/models/label-detector/yolov8-labels/weights/best.pt"
 export YOLO_CONFIDENCE_THRESHOLD=0.25
+export YOLO_OCR_LANGUAGES="en"
+export PRODUCT_CATALOG_PATH="/absolute/path/to/reviewed-product-catalog.json"
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -359,6 +361,29 @@ The confidence threshold is configurable between 0 and 1. Start at 0.25 for
 the existing default, then choose a threshold using validation data and the
 desired precision/recall tradeoff. Do not select it by repeatedly optimizing
 against the held-out test set.
+
+OCR is opt-in. Install the EasyOCR dependency from `requirements-vision.txt`,
+then set `YOLO_OCR_LANGUAGES` to a comma-separated EasyOCR language list (for
+example `en`). Leave it unset to return label boxes without OCR. The installed
+EasyOCR language list does not include Hebrew; use another OCR engine if the
+target labels require Hebrew text. Recognized snippets and OCR confidence are
+informational only; they do not confirm a SKU or affect pass/fail checks. SKU
+matching requires a reviewed catalog and representative ground truth. The
+catalog may be a JSON array or an object with a `products` array. Each product
+entry can contain `sku`, `product_name`, `aliases`, `strength`, `volume`,
+`form`, `route`, and `manufacturer`; identity aliases must be approved values.
+The enricher only suggests a catalog entry when an alias matches OCR text
+exactly and uniquely. Suggestions always require human review. Ambiguous matches
+stay missing, and conflicts between OCR and catalog values are surfaced.
+
+For a local OCR smoke test, run
+`python scripts/smoke_label_ocr.py --languages en --limit 3` from `backend/`.
+The script processes images locally and prints detected text snippets; manually
+check the output against the labels. On the first three sample frames, label
+detection confidence was 0.959-0.961. OCR recovered parts of `20 mg/ml` and
+"concentrate for solution", but misread the product/drug name. The sample label
+is partly occluded by the dispenser and image framing. This confirms the OCR
+path runs, not that SKU reading is accurate; it is not an accuracy evaluation.
 
 In a second terminal, verify health:
 

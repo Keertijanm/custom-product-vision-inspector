@@ -126,6 +126,32 @@ export default function ResultsPage() {
                     Box: {detection.bounding_box.map((coordinate) => coordinate.toFixed(3)).join(", ")}
                   </small>
                 ) : null}
+                {detection.recognized_text?.length ? (
+                  <p>
+                    Read text: {detection.recognized_text
+                      .map((item) => `${item.text} (${Math.round(item.confidence * 100)}%)`)
+                      .join(" | ")}
+                  </p>
+                ) : null}
+                {detection.data_completion ? (
+                  <div>
+                    <p>
+                      Data completion: {detection.data_completion.status} (catalog {detection.data_completion.catalog_match})
+                    </p>
+                    {detection.data_completion.fields.map((field) => (
+                      <p key={`${detection.id}-${field.field}-${field.source}`}>
+                        {field.field}: {field.value} ({field.source}, {Math.round(field.confidence * 100)}%
+                        {field.requires_review ? ", review required" : ""})
+                      </p>
+                    ))}
+                    {detection.data_completion.missing_fields.length > 0 ? (
+                      <small>Missing: {detection.data_completion.missing_fields.join(", ")}</small>
+                    ) : null}
+                    {detection.data_completion.conflicts.length > 0 ? (
+                      <small>Conflicting values: {detection.data_completion.conflicts.join(", ")}</small>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>

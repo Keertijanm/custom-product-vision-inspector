@@ -19,6 +19,20 @@ export type Detection = {
   confidence: number;
   category: "object" | "region" | "packaging" | "defect" | "label";
   bounding_box?: [number, number, number, number] | null;
+  recognized_text?: { text: string; confidence: number }[];
+  data_completion?: {
+    status: "complete" | "incomplete" | "review";
+    catalog_match: "matched" | "ambiguous" | "none" | "unavailable";
+    fields: {
+      field: string;
+      value: string;
+      confidence: number;
+      source: "ocr" | "catalog";
+      requires_review: boolean;
+    }[];
+    missing_fields: string[];
+    conflicts: string[];
+  } | null;
 };
 
 export type CheckResult = {
